@@ -1,45 +1,74 @@
-// NOTE: Do NOT add setup() or draw() in this file
-// setup() and draw() live in main.js
-// This file only defines:
-// 1) drawLose() → what the lose screen looks like
-// 2) input handlers → how the player returns to the start screen
-
-// ------------------------------
-// Main draw function for lose screen
-// ------------------------------
-// drawLose() is called from main.js
-// only when currentScreen === "lose"
-function drawLose() {
-  // Red-tinted background to communicate failure
-  background(255, 210, 210);
-
-  fill(0);
-  textAlign(CENTER, CENTER);
-
-  // Main message
-  textSize(40);
-  text("You Lose!", width / 2, 300);
-
-  // Instruction text
-  textSize(20);
-  text("Click or press R to return to Start.", width / 2, 360);
+// Lose screen functions
+function drawLoseScreen() {
+    background(255, 240, 240);
+    
+    // Title
+    fill(229, 115, 115);
+    textAlign(CENTER, CENTER);
+    textSize(48);
+    textStyle(BOLD);
+    text('😅 Not Bad! 😅', width / 2, 80);
+    
+    // Customer feedback
+    fill(198, 40, 40);
+    textSize(24);
+    text('Customer wasn\'t impressed...', width / 2, 140);
+    
+    // Show rating
+    drawStars(width / 2, 200, customerRating);
+    
+    // Tip amount box
+    fill(255, 255, 255, 230);
+    stroke(229, 115, 115);
+    strokeWeight(3);
+    rect(250, 270, 300, 120, 15);
+    
+    fill(33, 33, 33);
+    noStroke();
+    textSize(22);
+    text('Small Tip:', width / 2, 300);
+    
+    fill(255, 152, 0);
+    textSize(42);
+    textStyle(BOLD);
+    text('$' + tipAmount + '.00', width / 2, 350);
+    
+    // Encouragement
+    fill(33, 33, 33);
+    textStyle(NORMAL);
+    textSize(20);
+    text('Keep practicing!', width / 2, 420);
+    
+    textSize(16);
+    text('Every matcha master starts somewhere.', width / 2, 450);
+    text('Try different combinations next time!', width / 2, 475);
+    
+    // Your drink combination
+    textSize(14);
+    fill(100, 100, 100);
+    text('You made:', width / 2, 510);
+    
+    let summary = getCupName(selectedCup) + ' with ' + 
+                  getSyrupName(selectedSyrup) + ', ' +
+                  getMatchaName(selectedMatcha) + ' & ' +
+                  getToppingName(selectedTopping);
+    text(summary, width / 2, 530);
+    
+    // Buttons
+    drawButton(150, 560, 200, 50, 'TRY AGAIN', 229, 115, 115);
+    drawButton(450, 560, 200, 50, 'MAIN MENU', 100, 149, 237);
 }
 
-// ------------------------------
-// Mouse input for lose screen
-// ------------------------------
-// Any mouse click returns the player to the start screen
-// (no buttons needed for this simple end state)
-function loseMousePressed() {
-  currentScreen = "start";
-}
-
-// ------------------------------
-// Keyboard input for lose screen
-// ------------------------------
-// R is commonly used for “restart” in games
-function loseKeyPressed() {
-  if (key === "r" || key === "R") {
-    currentScreen = "start";
-  }
+function handleLoseScreenClick() {
+    // Try Again button
+    if (mouseX > 150 && mouseX < 350 && mouseY > 560 && mouseY < 610) {
+        resetGame();
+        changeState('game');
+    }
+    
+    // Main Menu button
+    if (mouseX > 450 && mouseX < 650 && mouseY > 560 && mouseY < 610) {
+        resetGame();
+        changeState('start');
+    }
 }

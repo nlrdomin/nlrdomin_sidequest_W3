@@ -1,124 +1,56 @@
-// ------------------------------------------------------------
-// main.js = the “router” (traffic controller) for the whole game
-// ------------------------------------------------------------
-//
-// Idea: this project has multiple screens (start, instructions, game, win, lose).
-// Instead of putting everything in one giant file, each screen lives in its own
-// file and defines two main things:
-//   1) drawX()         → how that screen looks
-//   2) XMousePressed() / XKeyPressed() → how that screen handles input
-//
-// This main.js file does 3 important jobs:
-//   A) stores the current screen in a single shared variable
-//   B) calls the correct draw function each frame
-//   C) sends mouse/keyboard input to the correct screen handler
+// Global game state and variables
+let gameState = 'start'; // 'start', 'game', 'win', 'lose'
 
-// ------------------------------
-// Global game state
-// ------------------------------
-// This variable is shared across all files because all files run in the same
-// global JavaScript scope when loaded in index.html.
-//
-// We store the “name” of the current screen as a string.
-// Only one screen should be active at a time.
-let currentScreen = "start"; // "start" | "instr" | "game" | "win" | "lose"
+// Player selections
+let selectedCup = null;
+let selectedSyrup = null;
+let selectedMatcha = null;
+let selectedTopping = null;
 
-// ------------------------------
-// setup() runs ONCE at the beginning
-// ------------------------------
-// This is where you usually set canvas size and initial settings.
-function setup() {
-  createCanvas(800, 800);
+// Game progress
+let currentStep = 1; // 1: cup, 2: syrup, 3: matcha, 4: topping
+let customerRating = 0;
+let tipAmount = 0;
 
-  // Sets a default font for all text() calls
-  // (This can be changed later per-screen if you want.)
-  textFont("sans-serif");
+// Cup options
+const cups = [
+    { name: 'Whimsical Cup', id: 'whimsical' },
+    { name: 'Glass Jar', id: 'jar' },
+    { name: 'Plastic Cup', id: 'plastic' }
+];
+
+// Syrup options with colors
+const syrups = [
+    { name: 'Earl Grey Syrup', id: 'earlgrey', color: '#8B7355' },
+    { name: 'Matcha Puree', id: 'matcha', color: '#7CB342' },
+    { name: 'Ube Puree', id: 'ube', color: '#9575CD' }
+];
+
+// Matcha powder options
+const matchaPowders = [
+    { name: 'Ceremonial Grade', id: 'ceremonial', color: '#6B8E23' },
+    { name: 'Hojicha', id: 'hojicha', color: '#A0522D' }
+];
+
+// Topping options
+const toppings = [
+    { name: 'Sweet Cream', id: 'sweet', color: '#FFF8DC' },
+    { name: 'Coconut Cream', id: 'coconut', color: '#FFFAF0' },
+    { name: 'Ube Cream', id: 'ubecream', color: '#E1BEE7' }
+];
+
+// Reset game function
+function resetGame() {
+    selectedCup = null;
+    selectedSyrup = null;
+    selectedMatcha = null;
+    selectedTopping = null;
+    currentStep = 1;
+    customerRating = 0;
+    tipAmount = 0;
 }
 
-// ------------------------------
-// draw() runs every frame (many times per second)
-// ------------------------------
-// This is the core “router” for visuals.
-// Depending on currentScreen, we call the correct draw function.
-function draw() {
-  // Each screen file defines its own draw function:
-  //   start.js         → drawStart()
-  //   instructions.js  → drawInstr()
-  //   game.js          → drawGame()
-  //   win.js           → drawWin()
-  //   lose.js          → drawLose()
-
-  if (currentScreen === "start") drawStart();
-  else if (currentScreen === "instr") drawInstr();
-  else if (currentScreen === "game") drawGame();
-  else if (currentScreen === "win") drawWin();
-  else if (currentScreen === "lose") drawLose();
-
-  // (Optional teaching note)
-  // This “if/else chain” is a very common early approach.
-  // Later in the course you might replace it with:
-  // - a switch statement, or
-  // - an object/map of screens
-}
-
-// ------------------------------
-// mousePressed() runs once each time the mouse is clicked
-// ------------------------------
-// This routes mouse input to the correct screen handler.
-function mousePressed() {
-  // Each screen *may* define a mouse handler:
-  // start.js         → startMousePressed()
-  // instructions.js  → instrMousePressed()
-  // game.js          → gameMousePressed()
-  // win.js           → winMousePressed()
-  // lose.js          → loseMousePressed()
-
-  if (currentScreen === "start") startMousePressed();
-  else if (currentScreen === "instr") instrMousePressed();
-  else if (currentScreen === "game") gameMousePressed();
-  // The ?.() means “call this function only if it exists”
-  // This prevents errors if a screen doesn’t implement a handler.
-  else if (currentScreen === "win") winMousePressed?.();
-  else if (currentScreen === "lose") loseMousePressed?.();
-}
-
-// ------------------------------
-// keyPressed() runs once each time a key is pressed
-// ------------------------------
-// This routes keyboard input to the correct screen handler.
-function keyPressed() {
-  // Each screen *may* define a key handler:
-  // start.js         → startKeyPressed()
-  // instructions.js  → instrKeyPressed()
-  // game.js          → gameKeyPressed()
-  // win.js           → winKeyPressed()
-  // lose.js          → loseKeyPressed()
-
-  if (currentScreen === "start") startKeyPressed();
-  else if (currentScreen === "instr") instrKeyPressed();
-  else if (currentScreen === "game") gameKeyPressed?.();
-  else if (currentScreen === "win") winKeyPressed?.();
-  else if (currentScreen === "lose") loseKeyPressed?.();
-}
-
-// ------------------------------------------------------------
-// Shared helper function: isHover()
-// ------------------------------------------------------------
-//
-// Many screens have buttons.
-// This helper checks whether the mouse is inside a rectangle.
-//
-// Important: our buttons are drawn using rectMode(CENTER),
-// meaning x,y is the CENTRE of the rectangle.
-// So we check mouseX and mouseY against half-width/half-height bounds.
-//
-// Input:  an object with { x, y, w, h }
-// Output: true if mouse is over the rectangle, otherwise false
-function isHover({ x, y, w, h }) {
-  return (
-    mouseX > x - w / 2 && // mouse is right of left edge
-    mouseX < x + w / 2 && // mouse is left of right edge
-    mouseY > y - h / 2 && // mouse is below top edge
-    mouseY < y + h / 2 // mouse is above bottom edge
-  );
+// Change game state
+function changeState(newState) {
+    gameState = newState;
 }
