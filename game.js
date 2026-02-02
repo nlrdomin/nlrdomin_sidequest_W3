@@ -1,278 +1,261 @@
-// Game screen functions
-function drawGameScreen() {
-    background(245, 245, 245);
-    
-    // Header
-    fill(76, 175, 80);
-    textAlign(CENTER, CENTER);
-    textSize(32);
-    textStyle(BOLD);
-    text('Create Your Matcha Drink', width / 2, 40);
-    
-    // Progress indicator
-    drawProgressIndicator();
-    
-    // Current step display
-    fill(33, 33, 33);
-    textSize(24);
-    let stepText = '';
-    switch(currentStep) {
-        case 1: stepText = 'Step 1: Choose Your Cup'; break;
-        case 2: stepText = 'Step 2: Select a Syrup'; break;
-        case 3: stepText = 'Step 3: Pick Your Matcha'; break;
-        case 4: stepText = 'Step 4: Add a Topping'; break;
-    }
-    text(stepText, width / 2, 100);
-    
-    // Draw cup preview on the right
-    drawDrinkPreview();
-    
-    // Draw options based on current step
-    drawOptions();
-}
+// game.js - Game Logic Controller
+// Handles the core game mechanics - flower spawning, catching, collision detection
 
-function drawProgressIndicator() {
-    let spacing = 150;
-    let startX = width / 2 - (spacing * 1.5);
-    let y = 70;
+const gameLogic = {
+    flowers: [],
+    basket: null,
+    canvas: null,
+    ctx: null,
+    animationFrame: null,
+    keys: {},
     
-    for (let i = 1; i <= 4; i++) {
-        if (i < currentStep) {
-            fill(76, 175, 80);
-        } else if (i === currentStep) {
-            fill(129, 199, 132);
-        } else {
-            fill(200, 200, 200);
+    // Game settings
+    settings: {
+        flowerSpawnRate: 1200, // milliseconds between spawns
+        flowerSpeed: 2,
+        basketSpeed: 6,
+        flowerSize: 40,
+        basketWidth: 80,
+        basketHeight: 60
+    },
+    
+    spawnInterval: null,
+    
+    // Flower types with emojis
+    flowerTypes: ['🌸', '🌺', '🌼', '🌻', '🌷', '🏵️', '🌹'],
+    
+    // Initialize game logic
+    init() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size
+        this.canvas.width = 600;
+        this.canvas.height = 500;
+        
+        this.setupKeyboardControls();
+    },
+    
+    // Setup keyboard controls
+    setupKeyboardControls() {
+        document.addEventListener('keydown', (e) => {
+            this.keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.keys[e.key] = false;
+        });
+    },
+    
+    // Start the game
+    start() {
+        console.log('Game logic started');
+        this.reset();
+        
+        // Initialize basket
+        this.basket = {
+            x: this.canvas.width / 2 - this.settings.basketWidth / 2,
+            y: this.canvas.height - this.settings.basketHeight - 20,
+            width: this.settings.basketWidth,
+            height: this.settings.basketHeight,
+            color: '#2d6a4f'
+        };
+        
+        // Start spawning flowers
+        this.startSpawning();
+        
+        // Start game loop
+        this.gameLoop();
+    },
+    
+    // Stop the game
+    stop() {
+        console.log('Game logic stopped');
+        this.stopSpawning();
+        
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
         }
-        noStroke();
-        ellipse(startX + (i - 1) * spacing, y, 30, 30);
-        
-        fill(255);
-        textSize(16);
-        text(i, startX + (i - 1) * spacing, y);
-    }
-}
-
-function drawOptions() {
-    let options = [];
-    let yStart = 150;
-    let spacing = 100;
+    },
     
-    switch(currentStep) {
-        case 1:
-            options = cups;
-            break;
-        case 2:
-            options = syrups;
-            break;
-        case 3:
-            options = matchaPowders;
-            break;
-        case 4:
-            options = toppings;
-            break;
-    }
-    
-    // Draw option buttons
-    for (let i = 0; i < options.length; i++) {
-        let x = 80;
-        let y = yStart + (i * spacing);
-        let w = 300;
-        let h = 70;
+    // Reset game state
+    reset() {
+        this.flowers = [];
+        this.basket = null;
+        this.stopSpawning();
         
-        // Check if this option is selected
-        let isSelected = false;
-        switch(currentStep) {
-            case 1: isSelected = selectedCup === options[i].id; break;
-            case 2: isSelected = selectedSyrup === options[i].id; break;
-            case 3: isSelected = selectedMatcha === options[i].id; break;
-            case 4: isSelected = selectedTopping === options[i].id; break;
-        }
-        
-        // Draw button
-        if (isSelected) {
-            fill(76, 175, 80);
-        } else if (mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h) {
-            fill(200, 230, 201);
-        } else {
-            fill(255);
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
         }
         
-        stroke(76, 175, 80);
-        strokeWeight(3);
-        rect(x, y, w, h, 10);
-        
-        // Draw color swatch if applicable
-        if (options[i].color) {
-            fill(options[i].color);
-            noStroke();
-            ellipse(x + 30, y + h / 2, 30, 30);
+        // Clear canvas
+        if (this.ctx) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
+    },
+    
+    // Start spawning flowers
+    startSpawning() {
+        this.spawnInterval = setInterval(() => {
+            this.spawnFlower();
+        }, this.settings.flowerSpawnRate);
+    },
+    
+    // Stop spawning flowers
+    stopSpawning() {
+        if (this.spawnInterval) {
+            clearInterval(this.spawnInterval);
+            this.spawnInterval = null;
+        }
+    },
+    
+    // Spawn a new flower
+    spawnFlower() {
+        const flower = {
+            x: Math.random() * (this.canvas.width - this.settings.flowerSize),
+            y: -this.settings.flowerSize,
+            size: this.settings.flowerSize,
+            speed: this.settings.flowerSpeed + Math.random() * 1,
+            type: this.flowerTypes[Math.floor(Math.random() * this.flowerTypes.length)],
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.1
+        };
         
-        // Draw text
-        fill(33, 33, 33);
-        noStroke();
-        textAlign(LEFT, CENTER);
-        textSize(18);
-        text(options[i].name, x + 60, y + h / 2);
-    }
+        this.flowers.push(flower);
+    },
     
-    // Draw next/confirm button if selection is made
-    if ((currentStep === 1 && selectedCup) ||
-        (currentStep === 2 && selectedSyrup) ||
-        (currentStep === 3 && selectedMatcha) ||
-        (currentStep === 4 && selectedTopping)) {
+    // Main game loop
+    gameLoop() {
+        this.update();
+        this.draw();
         
-        let buttonText = currentStep === 4 ? 'SERVE DRINK' : 'NEXT';
-        drawButton(80, 500, 300, 50, buttonText, 76, 175, 80);
-    }
-}
-
-function drawDrinkPreview() {
-    // Background for preview
-    fill(255, 255, 255, 230);
-    stroke(76, 175, 80);
-    strokeWeight(3);
-    rect(450, 130, 300, 400, 15);
+        this.animationFrame = requestAnimationFrame(() => this.gameLoop());
+    },
     
-    fill(33, 33, 33);
-    noStroke();
-    textAlign(CENTER, CENTER);
-    textSize(18);
-    text('Your Drink', 600, 155);
-    
-    // Draw the glass/cup at center
-    let glassX = 600;
-    let glassY = 350;
-    
-    // Draw cup based on selection
-    if (selectedCup) {
-        drawCup(glassX, glassY, selectedCup);
-    } else {
-        // Empty glass outline
-        stroke(150);
-        strokeWeight(2);
-        noFill();
-        rect(glassX - 50, glassY - 60, 100, 120, 5);
-    }
-    
-    // Fill the glass from bottom to top with layers
-    let fillY = glassY + 50;
-    let layerHeight = 30;
-    
-    // Syrup layer (bottom)
-    if (selectedSyrup) {
-        let syrup = syrups.find(s => s.id === selectedSyrup);
-        fill(syrup.color);
-        noStroke();
-        rect(glassX - 45, fillY - layerHeight, 90, layerHeight, 0, 0, 5, 5);
-        fillY -= layerHeight;
-    }
-    
-    // Matcha layer (middle)
-    if (selectedMatcha) {
-        let matcha = matchaPowders.find(m => m.id === selectedMatcha);
-        fill(matcha.color);
-        noStroke();
-        rect(glassX - 45, fillY - layerHeight, 90, layerHeight);
-        fillY -= layerHeight;
-    }
-    
-    // Topping layer (top)
-    if (selectedTopping) {
-        let topping = toppings.find(t => t.id === selectedTopping);
-        fill(topping.color);
-        noStroke();
-        rect(glassX - 45, fillY - layerHeight, 90, layerHeight, 5, 5, 0, 0);
-    }
-}
-
-function drawCup(x, y, cupType) {
-    stroke(100);
-    strokeWeight(3);
-    fill(255, 255, 255, 100);
-    
-    switch(cupType) {
-        case 'whimsical':
-            // Curved whimsical cup
-            beginShape();
-            vertex(x - 50, y + 60);
-            bezierVertex(x - 55, y, x - 30, y - 60, x, y - 60);
-            bezierVertex(x + 30, y - 60, x + 55, y, x + 50, y + 60);
-            vertex(x - 50, y + 60);
-            endShape(CLOSE);
-            // Handle
-            noFill();
-            arc(x + 60, y, 40, 50, -HALF_PI, HALF_PI);
-            break;
-            
-        case 'jar':
-            // Mason jar style
-            rect(x - 50, y - 60, 100, 120, 5);
-            // Lid threads
-            stroke(100);
-            line(x - 50, y - 50, x + 50, y - 50);
-            line(x - 50, y - 40, x + 50, y - 40);
-            break;
-            
-        case 'plastic':
-            // Simple plastic cup (trapezoid)
-            quad(x - 45, y - 60, x + 45, y - 60, x + 50, y + 60, x - 50, y + 60);
-            // Lid
-            ellipse(x, y - 60, 90, 20);
-            break;
-    }
-}
-
-function handleGameScreenClick() {
-    let options = [];
-    let yStart = 150;
-    let spacing = 100;
-    
-    switch(currentStep) {
-        case 1: options = cups; break;
-        case 2: options = syrups; break;
-        case 3: options = matchaPowders; break;
-        case 4: options = toppings; break;
-    }
-    
-    // Check option clicks
-    for (let i = 0; i < options.length; i++) {
-        let x = 80;
-        let y = yStart + (i * spacing);
-        let w = 300;
-        let h = 70;
-        
-        if (mouseX > x && mouseX < x + w && mouseY > y && mouseY < y + h) {
-            switch(currentStep) {
-                case 1: selectedCup = options[i].id; break;
-                case 2: selectedSyrup = options[i].id; break;
-                case 3: selectedMatcha = options[i].id; break;
-                case 4: selectedTopping = options[i].id; break;
+    // Update game state
+    update() {
+        // Update basket position
+        if (this.basket) {
+            if (this.keys['ArrowLeft'] && this.basket.x > 0) {
+                this.basket.x -= this.settings.basketSpeed;
             }
-            return;
-        }
-    }
-    
-    // Check next/serve button
-    if (mouseX > 80 && mouseX < 380 && mouseY > 500 && mouseY < 550) {
-        if (currentStep === 1 && selectedCup) {
-            currentStep = 2;
-        } else if (currentStep === 2 && selectedSyrup) {
-            currentStep = 3;
-        } else if (currentStep === 3 && selectedMatcha) {
-            currentStep = 4;
-        } else if (currentStep === 4 && selectedTopping) {
-            // Generate random rating (1-5 stars)
-            customerRating = floor(random(3, 6)); // 3-5 stars for better gameplay
-            tipAmount = customerRating;
-            
-            // Determine win or lose
-            if (customerRating >= 4) {
-                changeState('win');
-            } else {
-                changeState('lose');
+            if (this.keys['ArrowRight'] && this.basket.x < this.canvas.width - this.basket.width) {
+                this.basket.x += this.settings.basketSpeed;
             }
         }
+        
+        // Update flowers
+        for (let i = this.flowers.length - 1; i >= 0; i--) {
+            const flower = this.flowers[i];
+            flower.y += flower.speed;
+            flower.rotation += flower.rotationSpeed;
+            
+            // Check collision with basket
+            if (this.checkCollision(flower, this.basket)) {
+                // Flower caught!
+                game.addScore(1);
+                this.flowers.splice(i, 1);
+                this.createCatchEffect(flower.x, flower.y);
+                continue;
+            }
+            
+            // Remove flower if it's off screen
+            if (flower.y > this.canvas.height) {
+                this.flowers.splice(i, 1);
+            }
+        }
+    },
+    
+    // Check collision between flower and basket
+    checkCollision(flower, basket) {
+        if (!basket) return false;
+        
+        const flowerCenterX = flower.x + flower.size / 2;
+        const flowerCenterY = flower.y + flower.size / 2;
+        
+        return (
+            flowerCenterX > basket.x &&
+            flowerCenterX < basket.x + basket.width &&
+            flowerCenterY > basket.y &&
+            flowerCenterY < basket.y + basket.height
+        );
+    },
+    
+    // Create visual effect when catching a flower
+    createCatchEffect(x, y) {
+        // Simple sparkle effect (will be enhanced by sketch.js)
+        console.log('✨ Flower caught at', x, y);
+    },
+    
+    // Draw everything
+    draw() {
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw flowers
+        this.flowers.forEach(flower => {
+            this.drawFlower(flower);
+        });
+        
+        // Draw basket
+        if (this.basket) {
+            this.drawBasket(this.basket);
+        }
+    },
+    
+    // Draw a flower
+    drawFlower(flower) {
+        this.ctx.save();
+        this.ctx.translate(flower.x + flower.size / 2, flower.y + flower.size / 2);
+        this.ctx.rotate(flower.rotation);
+        this.ctx.font = `${flower.size}px Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(flower.type, 0, 0);
+        this.ctx.restore();
+    },
+    
+    // Draw the basket
+    drawBasket(basket) {
+        // Draw basket body
+        this.ctx.fillStyle = basket.color;
+        this.ctx.beginPath();
+        this.ctx.moveTo(basket.x + 10, basket.y);
+        this.ctx.lineTo(basket.x + basket.width - 10, basket.y);
+        this.ctx.lineTo(basket.x + basket.width, basket.y + basket.height);
+        this.ctx.lineTo(basket.x, basket.y + basket.height);
+        this.ctx.closePath();
+        this.ctx.fill();
+        
+        // Draw basket rim
+        this.ctx.strokeStyle = '#1a4d2e';
+        this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+        
+        // Draw basket pattern
+        this.ctx.strokeStyle = '#52b788';
+        this.ctx.lineWidth = 2;
+        for (let i = 0; i < 5; i++) {
+            const x = basket.x + (basket.width / 5) * i;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, basket.y);
+            this.ctx.lineTo(x + 10, basket.y + basket.height);
+            this.ctx.stroke();
+        }
+        
+        // Draw basket emoji
+        this.ctx.font = '30px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('🧺', basket.x + basket.width / 2, basket.y + basket.height / 2);
     }
+};
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => gameLogic.init());
+} else {
+    gameLogic.init();
 }
