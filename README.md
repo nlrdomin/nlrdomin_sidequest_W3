@@ -19,3 +19,7 @@ Describe how to use or play your project.
 ## Assets
 N/A
 
+---
+## Gen AI
+The code and comments were written by GenAI.
+
